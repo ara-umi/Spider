@@ -3,15 +3,16 @@
 # Author: araumi
 # Email: 532990165@qq.com
 # DateTime: 2023/8/4 下午11:10
-
+import datetime
 import json
 import random
 import re
 import time
 import urllib.parse
-from typing import Optional
+from typing import Optional, NoReturn
 
 import aiohttp
+import pytz
 from attrs import define, field
 from lxml import etree
 
@@ -21,9 +22,26 @@ from .interface import IGenerator
 @define
 class GameskyPost(object):
     title: str = field()
+    title_img: Optional[str] = field(repr=False)
     url: str = field()
     overview: str = field(repr=False)
     time: str = field()
+    time_datetime = field(type=datetime.datetime, repr=False)
+
+
+class LaterPostException(Exception):
+    pass
+
+
+class EarlierPostException(Exception):
+    """
+    我们默认它是按照时间倒序的，所以这两种异常要分情况处理
+    """
+    pass
+
+
+class ValidPost(Exception):
+    pass
 
 
 class GameskyGenerator(IGenerator):
@@ -34,10 +52,131 @@ class GameskyGenerator(IGenerator):
 
     start_url = "https://db2.gamersky.com/LabelJsonpAjax.aspx?callback={callback}&jsondata={json_data}&_={timestamp_ms}"
     encoding = "utf-8"
+    start_page = 1
+    timezone = pytz.timezone("Asia/Shanghai")
 
-    def __init__(self, start_page: int = 1, end_page: Optional[int] = None):
-        self.start_page = start_page
-        self.end_page = end_page
+    def __init__(self, start_datetime: datetime.datetime, end_datetime: Optional[datetime.datetime] = None):
+        """
+        不传入end_datetime的话，就只爬取start_datetime这一天的数据
+        """
+        self.start_datetime = self._format_input_datetime(input_datetime=start_datetime)
+        self.end_datetime = self._format_input_datetime(end_datetime) \
+            if end_datetime \
+            else self._format_input_datetime(input_datetime=start_datetime)
+
+        assert self.start_datetime <= self.end_datetime, "start_datetime must be less than or equal to end_datetime"
+        assert self.end_datetime <= datetime.datetime.now(
+            tz=self.timezone), "end_datetime must be less than or equal to now"
+
+    async def create_client(self) -> aiohttp.ClientSession:
+        return aiohttp.ClientSession()
+
+    async def release_client(self, client: aiohttp.ClientSession):
+        await client.close()
+
+    def _format_input_datetime(self, input_datetime: datetime.datetime) -> datetime.datetime:
+        """
+        只保留年月日
+        """
+        return datetime.datetime(
+            year=input_datetime.year,
+            month=input_datetime.month,
+            day=input_datetime.day
+        ).astimezone(tz=self.timezone)
+
+    def _format_post_datetime(self, post_time: str) -> datetime.datetime:
+        return datetime.datetime.strptime(post_time, "%Y-%m-%d").astimezone(tz=self.timezone)
+
+    def _process_img(self, li) -> Optional[str]:
+        """
+        这个类型很难标注，就不标注了，是个xpath的node
+        """
+        try:
+            # img里面存的是头图和图片标题
+            img = li.xpath("./div[@class='img']")[0]
+            img_a = img.xpath("./a")[0]
+            title_image = img_a.xpath("./@href")[0]
+            # title = img_a.xpath("./@title")[0]  # 图片标题其实不用管，是图片的注释
+            return title_image
+
+        # 是很有可能没有头图的
+        except IndexError:
+            return None
+
+    def _process_title(self, li) -> str:
+        """
+        不能没有title吧
+        """
+        # con里面存的是tit、txt、tme
+        con = li.xpath("./div[@class='con']")[0]
+        # tit里面存的是标题和链接
+        con_tit = con.xpath("./div[@class='tit']")[0]
+        title = con_tit.xpath("./a/text()")[0]
+        return title
+
+    def _process_url(self, li) -> str:
+        # con里面存的是tit、txt、tme
+        con = li.xpath("./div[@class='con']")[0]
+        # tit里面存的是标题和链接
+        con_tit = con.xpath("./div[@class='tit']")[0]
+        url = con_tit.xpath("./a/@href")[0]
+        return url
+
+    def _process_overview(self, li) -> Optional[str]:
+        try:
+            # con里面存的是tit、txt、tme
+            con = li.xpath("./div[@class='con']")[0]
+            # txt存的简介
+            con_txt = con.xpath("./div[@class='txt']")[0]
+            overview = con_txt.xpath("./text()")[0]
+        except IndexError:
+            return None
+
+    def _process_time(self, li) -> str:
+        # con里面存的是tit、txt、tme
+        con = li.xpath("./div[@class='con']")[0]
+        # tme存的时间
+        tme = con.xpath("./div[@class='tme']")[0]
+        tme_time = tme.xpath("./div[@class='time']")[0]
+        post_time = tme_time.xpath("./text()")[0]
+        return post_time
+
+    def _process_link(self, li) -> NoReturn:
+        """
+        tme_time后面还有一个div，不知道干什么的
+        """
+        pass
+
+    async def process(self, response: aiohttp.ClientResponse):
+        """
+        很神奇，它直接的返回竟然像一个json但是不是
+        -> AsyncGenerator[GameskyPost]  返回值的标注我暂时没搞懂，就先不写
+        """
+        patter = re.compile(r"jQuery\d+_\d+\((?P<json>.*?)\);", flags=re.S)
+        text = await response.text(encoding=self.encoding)
+        match = patter.match(text)  # 这里掐头去尾才是一个json
+        body = json.loads(match.group("json"))["body"]
+        html = etree.HTML(body)
+
+        li_list = html.xpath("//li")
+        for li in li_list:
+            # li里面有两个div，一个是img，一个是con
+            title = self._process_title(li=li)
+            title_img = self._process_img(li=li)
+            url = self._process_url(li=li)
+            overview = self._process_overview(li=li)
+            post_time = self._process_time(li=li)
+
+            post = GameskyPost(
+                title=title,
+                title_img=title_img,
+                url=url,
+                overview=overview,
+                time=post_time,
+                time_datetime=self._format_post_datetime(post_time=post_time)
+            )
+
+            yield post
 
     def shape_url(self, page: int) -> str:
         timestamp_ms = int(time.time() * 1e3)
@@ -60,83 +199,32 @@ class GameskyGenerator(IGenerator):
         )
         return url
 
-    async def create_client(self) -> aiohttp.ClientSession:
-        return aiohttp.ClientSession()
+    def post_check(self, post: GameskyPost) -> NoReturn:
+        if self.start_datetime <= post.time_datetime <= self.end_datetime:
+            raise ValidPost
+        elif post.time_datetime > self.start_datetime:
+            raise LaterPostException
+        else:
+            raise EarlierPostException
 
-    async def release_client(self, client: aiohttp.ClientSession):
-        await client.close()
-
-    async def process(self, response: aiohttp.ClientResponse) -> str:
+    async def generate(self):
         """
-        很神奇，它直接的返回竟然像一个json但是不是
+        可能需要一个异常处理就是当页数超过限制
         """
-        patter = re.compile(r"jQuery\d+_\d+\((?P<json>.*?)\);", flags=re.S)
-        text = await response.text(encoding=self.encoding)
-        match = patter.match(text)  # 这里掐头去尾才是一个json
-        body = json.loads(match.group("json"))["body"]
-        html = etree.HTML(body)
-
-        li_list = html.xpath("//li")
-        for li in li_list:
-            # li里面有两个div，一个是img，一个是con
-
-            # img里面存的是头图和图片标题
-            img = li.xpath("./div[@class='img']")[0]
-            img_a = img.xpath("./a")[0]
-            title_image = img_a.xpath("./@href")[0]
-            # title = img_a.xpath("./@title")[0]  # 图片标题其实不用管，是图片的注释
-
-            # con里面存的是tit、txt、tme
-            con = li.xpath("./div[@class='con']")[0]
-            # tit里面存的是标题和链接
-            con_tit = con.xpath("./div[@class='tit']")[0]
-            title = con_tit.xpath("./a/text()")[0]
-            url = con_tit.xpath("./a/@href")[0]
-            # txt存的简介
-            con_txt = con.xpath("./div[@class='txt']")[0]
-            overview = con_txt.xpath("./text()")[0]
-            # tme存的时间
-            tme = con.xpath("./div[@class='tme']")[0]
-            tme_time = tme.xpath("./div[@class='time']")[0]
-            post_time = tme_time.xpath("./text()")[0]
-            # 后面还有个div叫link，不知道干什么的
-
-            post = GameskyPost(
-                title=title,
-                url=url,
-                overview=overview,
-                time=post_time
-            )
-
-            print(post)
-
-    async def process_next_page(self, response: aiohttp.ClientResponse) -> str:
-        """
-        它的下一页很神奇，不是直接给你url，而是通过js加载的
-        """
-        text = await response.text(encoding=self.encoding)
-        html = etree.HTML(text)
-        # 主体在叫Page contentpage的div里
-        div = html.xpath("//div[@class='Page contentpage']")[0]
-        # 下面会有一个叫pagecss的span
-        span = div.xpath("./span[@class='pagecss']")[0]
-        # 下面会有很多a，第一个是前一页，第二是个本页，第三个是下一页
-        # 其实下一页的class一定是p2，本页是p3，上一页是p1 previous
-        a_next = span.xpath("./a")[2]
-        url = a_next.xpath("./")
-
-        """
-        其实只能通过这个方法来是否有下一页，不能获取到url
-        """
-
-    async def generate(self) -> "str":
-        """
-        先测试一下第一页
-        :return:
-        """
-        url = self.shape_url(page=1)
-        async with aiohttp.request(method="GET", url=url) as response:
-            return await self.process(response)
+        page = self.start_page
+        while True:
+            url = self.shape_url(page=page)
+            async with aiohttp.request(method="GET", url=url) as response:
+                async for post in self.process(response):
+                    try:
+                        self.post_check(post=post)
+                    except ValidPost:
+                        yield post
+                    except LaterPostException:
+                        pass
+                    except EarlierPostException:
+                        return
+            page += 1
 
 
 if __name__ == "__main__":
