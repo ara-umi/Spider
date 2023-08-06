@@ -77,11 +77,11 @@ class GameskyGenerator(IGenerator):
         assert self.end_datetime <= datetime.datetime.now(
             tz=self.timezone), "end_datetime must be less than or equal to now"
 
-    async def create_client(self) -> aiohttp.ClientSession:
+    async def create_session(self) -> aiohttp.ClientSession:
         return aiohttp.ClientSession()
 
-    async def release_client(self, client: aiohttp.ClientSession):
-        await client.close()
+    async def release_session(self, session: aiohttp.ClientSession):
+        await session.close()
 
     def _format_input_datetime(self, input_datetime: datetime.datetime) -> datetime.datetime:
         """
@@ -101,12 +101,9 @@ class GameskyGenerator(IGenerator):
         这个类型很难标注，就不标注了，是个xpath的node
         """
         try:
-            # img里面存的是头图和图片标题
-            img = li.xpath("./div[@class='img']")[0]
-            img_a = img.xpath("./a")[0]
-            title_image = img_a.xpath("./@href")[0]
-            # title = img_a.xpath("./@title")[0]  # 图片标题其实不用管，是图片的注释
-            return title_image
+            img = li.xpath("./div[@class='img']/a/img/@src")[0]
+            # img_title = li.xpath("./div[@class='img']/a/img/@alt")[0]  # 图片标题不重要，就没存，应该是和文章标题一样的
+            return img
 
         # 是很有可能没有头图的
         except IndexError:
@@ -170,6 +167,9 @@ class GameskyGenerator(IGenerator):
 
         li_list = html.xpath("//li")
         for li in li_list:
+            # for debug
+            # print(etree.tostring(li, encoding="utf-8").decode("utf-8"))
+
             # li里面有两个div，一个是img，一个是con
             title = self._process_title(li=li)
             title_img = self._process_img(li=li)
@@ -222,9 +222,10 @@ class GameskyGenerator(IGenerator):
         可能需要一个异常处理就是当页数超过限制
         """
         page = self.start_page
+        session = await self.create_session()
         while True:
             url = self.shape_url(page=page)
-            async with aiohttp.request(method="GET", url=url) as response:
+            async with session.get(url=url) as response:
                 async for post in self.process(response):
                     try:
                         self.post_check(post=post)
@@ -233,6 +234,7 @@ class GameskyGenerator(IGenerator):
                     except LaterPostException:
                         pass
                     except EarlierPostException:
+                        await self.release_session(session=session)
                         return
             page += 1
 

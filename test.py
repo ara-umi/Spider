@@ -22,13 +22,15 @@ class SpiderTest(unittest.IsolatedAsyncioTestCase):
 
         post_list: list[GameskyPost] = []
         async for post in generator.generate():
-            # 如果想动态查看结果，就在这里打印
             post_list.append(post)
+            # 动态展示
+            # print(post)
+            print(post.details)  # 会展示更多细节
 
-        for post in post_list:
-            print(post)
-            # print(post.details)  # 会显示更多细节
-
+        # 集中展示
+        # for post in post_list:
+        #     print(post)
+        #     print(post.details)  # 会显示更多细节
 
 if __name__ == "__main__":
     pass
