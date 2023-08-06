@@ -28,6 +28,15 @@ class GameskyPost(object):
     time: str = field()
     time_datetime = field(type=datetime.datetime, repr=False)
 
+    @property
+    def details(self) -> dict:
+        return {
+            "title": self.title,
+            "title_img": self.title_img,
+            "url": self.url,
+            "overview": self.overview,
+            "time": self.time,
+        }
 
 class LaterPostException(Exception):
     pass
@@ -129,6 +138,7 @@ class GameskyGenerator(IGenerator):
             # txt存的简介
             con_txt = con.xpath("./div[@class='txt']")[0]
             overview = con_txt.xpath("./text()")[0]
+            return overview
         except IndexError:
             return None
 
