@@ -6,7 +6,9 @@
 import datetime
 import unittest
 
-from generator import GameskyPost, GameskyGenerator
+from dealer import GameskyDealer
+from generator import GameskyGenerator
+from model import GameskyPost
 
 
 class SpiderTest(unittest.IsolatedAsyncioTestCase):
@@ -31,6 +33,24 @@ class SpiderTest(unittest.IsolatedAsyncioTestCase):
         # for post in post_list:
         #     print(post)
         #     print(post.details)  # 会显示更多细节
+
+    async def testGameskyDealer(self):
+        kwargs = {'title': '《博德之门3》巴尔神殿进入方法',
+                  'title_img': 'https://imgs.gamersky.com/upimg/new_preview/2023/08/06/origin_202308061627487960.jpg',
+                  'url': 'https://www.gamersky.com/handbook/202308/1628536.shtml',
+                  'overview': '《博德之门3》中巴尔神殿想要进入非常复杂，还不知道具体方法的玩家请看下面“丶易风雪”带来的《博德之门3》巴尔神殿进入方法，希望能够帮助大家。',
+                  'time': '2023-08-06'}
+        post = GameskyPost(**kwargs)
+
+        import aiohttp
+        session = aiohttp.ClientSession()
+
+        dealer = GameskyDealer(post=post, session=session)
+        post = await dealer.deal()
+        print(post.content)
+
+        await session.close()
+
 
 if __name__ == "__main__":
     pass

@@ -13,30 +13,11 @@ from typing import Optional, NoReturn
 
 import aiohttp
 import pytz
-from attrs import define, field
 from lxml import etree
 
+from model import GameskyPost
 from .interface import IGenerator
 
-
-@define
-class GameskyPost(object):
-    title: str = field()
-    title_img: Optional[str] = field(repr=False)
-    url: str = field()
-    overview: str = field(repr=False)
-    time: str = field()
-    time_datetime = field(type=datetime.datetime, repr=False)
-
-    @property
-    def details(self) -> dict:
-        return {
-            "title": self.title,
-            "title_img": self.title_img,
-            "url": self.url,
-            "overview": self.overview,
-            "time": self.time,
-        }
 
 class LaterPostException(Exception):
     pass
@@ -93,13 +74,7 @@ class GameskyGenerator(IGenerator):
             day=input_datetime.day
         ).astimezone(tz=self.timezone)
 
-    def _format_post_datetime(self, post_time: str) -> datetime.datetime:
-        return datetime.datetime.strptime(post_time, "%Y-%m-%d").astimezone(tz=self.timezone)
-
-    def _process_img(self, li) -> Optional[str]:
-        """
-        这个类型很难标注，就不标注了，是个xpath的node
-        """
+    def _process_img(self, li: etree.Element) -> Optional[str]:
         try:
             img = li.xpath("./div[@class='img']/a/img/@src")[0]
             # img_title = li.xpath("./div[@class='img']/a/img/@alt")[0]  # 图片标题不重要，就没存，应该是和文章标题一样的
@@ -183,7 +158,6 @@ class GameskyGenerator(IGenerator):
                 url=url,
                 overview=overview,
                 time=post_time,
-                time_datetime=self._format_post_datetime(post_time=post_time)
             )
 
             yield post
