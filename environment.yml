@@ -1,4 +1,4 @@
-name: spider
+name: gamespace
 channels:
   - conda-forge
   - defaults
