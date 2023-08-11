@@ -31,7 +31,7 @@ class GameskyPost(IPost):
     time: str = field()
 
     timezone = pytz.timezone("Asia/Shanghai")  # 需要和GameskyGenerator的timezone一致，这里写死，大概率不用修改
-    _content: str = None
+    _content: str = field(default=None, repr=False)
 
     @property
     def time_datetime(self) -> datetime.datetime:
