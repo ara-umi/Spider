@@ -41,6 +41,7 @@ class GameskyDealer(IDealer):
 
         skips = (
             re.compile(r"\s*更多相关内容请关注.*?"),
+            re.compile(r"\s*更多相关内容请关注：.*?"),
             re.compile(r"\s*责任编辑.*?")
         )
         for skip in skips:
@@ -49,11 +50,37 @@ class GameskyDealer(IDealer):
 
         return text
 
+    def _process_refer(self) -> str:
+        """
+        不需要的
+        """
+        return ""
+
+    def _process_top(self) -> str:
+        """
+        不需要的
+        """
+        return ""
+
     def _process_p_image(self, p: etree.Element) -> str:
         """
         带有class=GsImageLabel的p标签，下面的a标签的href属性是图片地址
         """
         return p.xpath("./a/@href")[0]
+
+    def _process_div_h2(self, d: etree.Element) -> str:
+        """
+        h2小标题
+        """
+        text = d.xpath("./text()")[0]
+        return text
+
+    def _process_div_h3(self, d: etree.Element) -> str:
+        """
+        h3小标题
+        """
+        text = d.xpath("./text()")[0]
+        return text
 
     def process_p(self, p: etree.Element) -> str:
         """
@@ -73,6 +100,28 @@ class GameskyDealer(IDealer):
             case _:  # 空字典
                 return self._process_p_blank(p=p)
 
+    def process_tag(self, tag: etree.Element) -> str:
+        """
+        目前包括以下情况
+        1、不带任何属性的p标签，内含文本
+        2、带有class=GsImageLabel的p标签，下面的a标签的href属性是图片地址
+
+        不包括以下情况
+        视频
+        小标题
+        ...
+        """
+        attribute_dict: dict = dict(tag.attrib)
+        match attribute_dict:
+            case {"class": "GsImageLabel", **extra}:
+                return self._process_p_image(p=tag)
+            case {"class": "GsWeTxt2", **extra}:
+                return self._process_div_h2()
+            case {"class": "GsWeTxt3", **extra}:
+                return self._process_div_h3()
+            case _:  # 空字典
+                return self._process_p_blank(p=tag)
+
     async def process_response(self, response: aiohttp.ClientResponse) -> Any:
         text = await response.text(encoding=self.encoding)
         html = etree.HTML(text=text)
@@ -83,6 +132,21 @@ class GameskyDealer(IDealer):
         content_list: list[str] = []
         for p in p_list:
             res = self.process_p(p=p)
+            content_list.append(res)
+
+        content: str = "\n".join(content for content in content_list if content)
+        return content
+
+    async def process_response_all_tag(self, response: aiohttp.ClientResponse) -> Any:
+        text = await response.text(encoding=self.encoding)
+        html = etree.HTML(text=text)
+        # 正文目前来看是在Mid2L_con里面
+        mid2l_con = html.xpath("//div[@class='Mid2L_con']")[0]
+        # 内容都在下面的p标签里面，div标签里面也有
+        tag_list = mid2l_con.xpath(".//")
+        content_list: list[str] = []
+        for tag in tag_list:
+            res = self.process_tag(tag=tag)
             content_list.append(res)
 
         content: str = "\n".join(content for content in content_list if content)
@@ -106,7 +170,8 @@ class GameskyDealer(IDealer):
         """
 
         async with self.session.get(url=self.post.url) as response:
-            content = await self.process_response(response=response)
+            # content = await self.process_response(response=response)
+            content = await self.process_response_all_tag(response=response)
             self.post.content = content
             return await self.process_localize(post=self.post)
 
