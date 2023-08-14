@@ -60,10 +60,15 @@ class GameskyDealer(IDealer):
         if not save_dir.exists():
             save_dir.mkdir()
 
-        save_path = save_dir / f"{post.title}.json"
-        with save_path.open("w", encoding="utf-8") as f:
-            json.dump(post.json, f, ensure_ascii=False, indent=4)
+        # save_path = save_dir / f"{post.title}.json"
+        # with save_path.open("w", encoding="utf-8") as f:
+        #     json.dump(post.json, f, ensure_ascii=False, indent=4)
 
+        # 改为txt存储
+        save_path = save_dir / f"{post.title}.txt"
+        txt = post.title + ' ##>>## ' + post.content
+        with save_path.open("w", encoding="utf-8") as f:
+            f.write(txt)
         return post
 
     async def deal(self):
@@ -75,7 +80,7 @@ class GameskyDealer(IDealer):
             # content = await self.process_response(response=response)
             content = await self.process_response_all_tag(response=response)
             self.post.content = content
-            if len(self.post.content) > 80:
+            if len(self.post.content) > 100:
                 return await self.process_localize(post=self.post)
             else:
                 return self.post

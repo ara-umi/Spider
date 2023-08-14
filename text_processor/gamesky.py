@@ -26,14 +26,15 @@ class GameskyTextProcessor(IProcessor):
         不带任何属性的p标签，内含文本
         暂时考虑异常处理
         """
-        # 添加非空判定
-        text = p.xpath("./text()")[0] if p.xpath("./text()") else ""
+        # 添加非空判定，并且string()能直接提取p标签下的所有文本，包含子标签文本
+        text = p.xpath("string()") if p.xpath("string()") else ""
 
         skips = (
             re.compile(r"\s*更多相关内容请关注.*?"),
             re.compile(r"\s*更多相关内容请关注.*?"),
             re.compile(r"\s*更多相关资讯请关注.*?"),
-            re.compile(r"\s*责任编辑.*?")
+            re.compile(r"\s*责任编辑.*?"),
+            re.compile(r"\s*gsVideo.*?")
         )
         for skip in skips:
             if skip.match(text):
@@ -62,15 +63,10 @@ class GameskyTextProcessor(IProcessor):
     def _process_div_h(self, d: etree.Element) -> str:
         """
         小标题
-        保存div下面元素的文本，通常是div里面装一个a链接，把a的text保存下来
-        div.text需要非空判断
+        保存div下面元素的文本，通常是div里面装一个a链接，把a的text保存下来，需要非空判断
         """
-        res = ""
-        if len(d.xpath(".//*")) > 0:
-            for element in d:
-                res += element.text if element.text else ""
-        # 判断div本身文本不为空，不然索引不存在
-        res += d.xpath("./text()")[0] if d.xpath("./text()") else ""
+        # 判断div本身文本不为空
+        res = d.xpath("string()") if d.xpath("string()") else ""
         return res
 
     def _process_ul(self, u: etree.Element) -> str:

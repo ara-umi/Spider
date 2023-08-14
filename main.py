@@ -34,7 +34,7 @@ def main_test():
     generator = GameskyGenerator(start_datetime=start_datetime, end_datetime=end_datetime)
     kwargs = {'title': '《艾尔登法环》支线完成顺序速览 1.04版本NPC支线顺序推荐',
               'title_img': 'https://imgs.gamersky.com/upimg/new_preview/2023/08/06/origin_202308061627487960.jpg',
-              'url': 'https://www.gamersky.com/handbook/202308/1630081.shtml',
+              'url': 'https://www.gamersky.com/handbook/202205/1482021.shtml',
               'overview': '《博德之门3》中巴尔神殿想要进入非常复杂，还不知道具体方法的玩家请看下面...',
               'time': '2023-08-06'}
     post = GameskyPost(**kwargs)
