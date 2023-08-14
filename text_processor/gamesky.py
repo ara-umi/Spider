@@ -14,7 +14,7 @@ class GameskyTextProcessor(IProcessor):
         self.res = None
         self.tag_list = None
 
-    def preprocess(self, html):
+    def preprocess(self, html: etree.HTML):
         # 正文目前来看是在Mid2L_con里面
         mid2l_con = html.xpath("//div[@class='Mid2L_con']")[0]
         # 内容都在下面的p标签里面，div标签里面也有
@@ -134,7 +134,7 @@ class GameskyTextProcessor(IProcessor):
             case _:  # 空字典
                 return self._process_gomi()
 
-    def get_text(self):
+    def get_text(self) -> str:
         self.preprocess(self.html)
         for tag in self.tag_list:
             if tag.tag == 'p':

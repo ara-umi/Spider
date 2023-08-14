@@ -75,7 +75,10 @@ class GameskyDealer(IDealer):
             # content = await self.process_response(response=response)
             content = await self.process_response_all_tag(response=response)
             self.post.content = content
-            return await self.process_localize(post=self.post)
+            if len(self.post.content) > 80:
+                return await self.process_localize(post=self.post)
+            else:
+                return self.post
 
 
 if __name__ == "__main__":
