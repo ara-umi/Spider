@@ -12,6 +12,7 @@ import aiohttp
 from lxml import etree
 
 from model import GameskyPost
+from text_processor import GameskyTextProcessor
 from .interface import IDealer
 
 
@@ -27,100 +28,6 @@ class GameskyDealer(IDealer):
 
         self.post = post
         self.session = session
-
-    def _process_p_blank(self, p: etree.Element) -> str:
-        """
-        不带任何属性的p标签，内含文本
-        暂时考虑异常处理
-        """
-        text = p.xpath("./text()")[0]
-
-        """
-        应该单开一个类叫process_text
-        """
-
-        skips = (
-            re.compile(r"\s*更多相关内容请关注.*?"),
-            re.compile(r"\s*更多相关内容请关注：.*?"),
-            re.compile(r"\s*责任编辑.*?")
-        )
-        for skip in skips:
-            if skip.match(text):
-                return ""
-
-        return text
-
-    def _process_refer(self) -> str:
-        """
-        不需要的
-        """
-        return ""
-
-    def _process_top(self) -> str:
-        """
-        不需要的
-        """
-        return ""
-
-    def _process_p_image(self, p: etree.Element) -> str:
-        """
-        带有class=GsImageLabel的p标签，下面的a标签的href属性是图片地址
-        """
-        return p.xpath("./a/@href")[0]
-
-    def _process_div_h2(self, d: etree.Element) -> str:
-        """
-        h2小标题
-        """
-        text = d.xpath("./text()")[0]
-        return text
-
-    def _process_div_h3(self, d: etree.Element) -> str:
-        """
-        h3小标题
-        """
-        text = d.xpath("./text()")[0]
-        return text
-
-    def process_p(self, p: etree.Element) -> str:
-        """
-        目前包括以下情况
-        1、不带任何属性的p标签，内含文本
-        2、带有class=GsImageLabel的p标签，下面的a标签的href属性是图片地址
-
-        不包括以下情况
-        视频
-        小标题
-        ...
-        """
-        attribute_dict: dict = dict(p.attrib)
-        match attribute_dict:
-            case {"class": "GsImageLabel", **extra}:
-                return self._process_p_image(p=p)
-            case _:  # 空字典
-                return self._process_p_blank(p=p)
-
-    def process_tag(self, tag: etree.Element) -> str:
-        """
-        目前包括以下情况
-        1、不带任何属性的p标签，内含文本
-        2、带有class=GsImageLabel的p标签，下面的a标签的href属性是图片地址
-
-        不包括以下情况
-        视频
-        小标题
-        ...
-        """
-        attribute_dict: dict = dict(tag.attrib)
-        match attribute_dict:
-            case {"class": "GsImageLabel", **extra}:
-                return self._process_p_image(p=tag)
-            case {"class": "GsWeTxt2", **extra}:
-                return self._process_div_h2()
-            case {"class": "GsWeTxt3", **extra}:
-                return self._process_div_h3()
-            case _:  # 空字典
-                return self._process_p_blank(p=tag)
 
     async def process_response(self, response: aiohttp.ClientResponse) -> Any:
         text = await response.text(encoding=self.encoding)
@@ -138,18 +45,14 @@ class GameskyDealer(IDealer):
         return content
 
     async def process_response_all_tag(self, response: aiohttp.ClientResponse) -> Any:
-        text = await response.text(encoding=self.encoding)
+        """
+        保留所有有用tag里的内容
+        """
+        text = await response.text(encoding=self.encoding, errors="ignore")  # 忽略非法字符，默认“strict”会抛出异常
         html = etree.HTML(text=text)
-        # 正文目前来看是在Mid2L_con里面
-        mid2l_con = html.xpath("//div[@class='Mid2L_con']")[0]
-        # 内容都在下面的p标签里面，div标签里面也有
-        tag_list = mid2l_con.xpath(".//")
-        content_list: list[str] = []
-        for tag in tag_list:
-            res = self.process_tag(tag=tag)
-            content_list.append(res)
-
-        content: str = "\n".join(content for content in content_list if content)
+        processor = GameskyTextProcessor(html)
+        content_list = processor.get_text()
+        content: str = "\n".join(content.strip() for content in content_list if content)
         return content
 
     async def process_localize(self, post: GameskyPost) -> GameskyPost:
@@ -168,7 +71,6 @@ class GameskyDealer(IDealer):
         不会存在post不存在url的情况下吧，我规定了一定要传入url的
         但是url是可能不合理的
         """
-
         async with self.session.get(url=self.post.url) as response:
             # content = await self.process_response(response=response)
             content = await self.process_response_all_tag(response=response)
