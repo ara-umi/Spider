@@ -20,7 +20,15 @@ create environment from environment.yml using anaconda
 - 筛选功能一切基于返回的li标签（因为我是按页码非并发地顺序扫描）自己已经基于时间倒序排序
 - 尚不知晓游民星空是否含有ip封禁功能
 
+08-15
+- 保存一份原始带标签的数据json，保存一份经过处理的干净文本txt
 
+08-14
+- 将文本处理方法移动到text_processor类
+- 在本地化之前检查content长度，过短的不做本地化。
+
+08-11
+- 添加多tag处理逻辑，正确处理p, div与ul等标签里的内容
 
 08-07
 

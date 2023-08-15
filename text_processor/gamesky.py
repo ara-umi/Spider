@@ -1,4 +1,6 @@
 import re
+from typing import List
+
 from lxml import etree
 from .interface import IProcessor
 
@@ -13,13 +15,6 @@ class GameskyTextProcessor(IProcessor):
         self.html = html
         self.res = None
         self.tag_list = None
-
-    def preprocess(self, html: etree.HTML):
-        # 正文目前来看是在Mid2L_con里面
-        mid2l_con = html.xpath("//div[@class='Mid2L_con']")[0]
-        # 内容都在下面的p标签里面，div标签里面也有
-        self.tag_list = mid2l_con.xpath("./child::*")
-        self.res: list[str] = []
 
     def _process_p_blank(self, p: etree.Element) -> str:
         """
@@ -60,27 +55,13 @@ class GameskyTextProcessor(IProcessor):
         """
         return ""
 
-    def _process_div_h(self, d: etree.Element) -> str:
-        """
-        小标题
-        保存div下面元素的文本，通常是div里面装一个a链接，把a的text保存下来，需要非空判断
-        """
-        # 判断div本身文本不为空
-        res = d.xpath("string()") if d.xpath("string()") else ""
-        return res
-
-    def _process_ul(self, u: etree.Element) -> str:
+    def _process_special_tag(self, t: etree.Element) -> str:
         """
         文本都在ul/li/text
         把每个li里面的文本加入结果，有些li里面装一个a，跟小标题一样
         li.text需要非空判断
         """
-        res = ""
-        for li in u.xpath(".//*"):
-            if len(li.xpath(".//*")) > 0:
-                for element in li:
-                    res += element.text if element.text else ""
-            res += li.xpath("./text()")[0] if li.xpath("./text()") else ""
+        res = t.xpath("string()") if t.xpath("string()") else ""
         return res
 
     def process_p(self, p: etree.Element) -> str:
@@ -120,18 +101,35 @@ class GameskyTextProcessor(IProcessor):
         attribute_dict: dict = dict(tag.attrib)
         match attribute_dict:
             case {"class": "GsWeTxt1", **extra}:
-                return self._process_div_h(d=tag)
+                return self._process_special_tag(t=tag)
             case {"class": "GsWeTxt2", **extra}:
-                return self._process_div_h(d=tag)
+                return self._process_special_tag(t=tag)
             case {"class": "GsWeTxt3", **extra}:
-                return self._process_div_h(d=tag)
+                return self._process_special_tag(t=tag)
             case {"class": "GSWeLi", **extra}:
-                return self._process_ul(u=tag)
+                return self._process_special_tag(t=tag)
             case _:  # 空字典
                 return self._process_gomi()
 
-    def get_text(self) -> str:
-        self.preprocess(self.html)
+    def get_raw_content(self):
+        try:
+            mid2l_con = self.html.xpath("//div[@class='Mid2L_con']")[0]
+        except IndexError:
+            # 若mid2l_con为空
+            return ["no content"]
+        raw_content = etree.tostring(mid2l_con, encoding="unicode", with_tail=True, method="html")
+        return raw_content
+
+    def get_clean_content(self) -> list[str]:
+        # 正文目前来看是在Mid2L_con里面
+        try:
+            mid2l_con = self.html.xpath("//div[@class='Mid2L_con']")[0]
+        except IndexError:
+            # 若mid2l_con为空
+            return ["no content"]
+        # 内容都在下面的p标签里面，div标签里面也有
+        self.tag_list = mid2l_con.xpath("./child::*")
+        self.res: list[str] = []
         for tag in self.tag_list:
             if tag.tag == 'p':
                 # 专门处理p标签

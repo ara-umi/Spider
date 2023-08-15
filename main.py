@@ -13,8 +13,8 @@ from model import GameskyPost
 
 
 async def main_example():
-    start_datetime = datetime.datetime(year=2023, month=8, day=10)
-    end_datetime = datetime.datetime(year=2023, month=8, day=10)
+    start_datetime = datetime.datetime(year=2023, month=6, day=1)
+    end_datetime = datetime.datetime(year=2023, month=8, day=15)
     generator = GameskyGenerator(start_datetime=start_datetime, end_datetime=end_datetime)
     post_list = []
     async for post in generator.generate():
@@ -43,12 +43,11 @@ def main_test():
     loop = asyncio.get_event_loop()
     session = aiohttp.ClientSession()
     dealer = GameskyDealer(post=post, session=session)
-    post = loop.run_until_complete(dealer.deal())
-    print(post.content)
+    post = loop.run_until_complete(dealer.deal(raw=True, save_type='txt'))
 
     loop.run_until_complete(session.close())
 
 
 if __name__ == "__main__":
-    asyncio.get_event_loop().run_until_complete(main_example())
-    # main_test()
+    # asyncio.get_event_loop().run_until_complete(main_example())
+    main_test()
