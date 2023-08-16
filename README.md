@@ -20,6 +20,10 @@ create environment from environment.yml using anaconda
 - 筛选功能一切基于返回的li标签（因为我是按页码非并发地顺序扫描）自己已经基于时间倒序排序
 - 尚不知晓游民星空是否含有ip封禁功能
 
+08-16
+- 移动下载模块到middleware类。
+- 加入ID检测机制，重复内容不再获取。
+
 08-15
 - 保存一份原始带标签的数据json，保存一份经过处理的干净文本txt
 

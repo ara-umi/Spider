@@ -84,6 +84,10 @@ class GameskyGenerator(IGenerator):
         except IndexError:
             return None
 
+    def _process_id(self, url) -> int:
+        post_id = int((re.search(r'(\d+)\.shtml', url)).group(1))
+        return post_id
+
     def _process_title(self, li) -> str:
         """
         不能没有title吧
@@ -151,6 +155,8 @@ class GameskyGenerator(IGenerator):
             url = self._process_url(li=li)
             overview = self._process_overview(li=li)
             post_time = self._process_time(li=li)
+            # 正则得到url后面的id
+            post_id = self._process_id(url=url)
 
             post = GameskyPost(
                 title=title,
@@ -158,6 +164,7 @@ class GameskyGenerator(IGenerator):
                 url=url,
                 overview=overview,
                 time=post_time,
+                post_id=post_id,
             )
 
             yield post
@@ -191,7 +198,7 @@ class GameskyGenerator(IGenerator):
         else:
             raise EarlierPostException
 
-    async def generate(self):
+    async def __call__(self):
         """
         可能需要一个异常处理就是当页数超过限制
         """

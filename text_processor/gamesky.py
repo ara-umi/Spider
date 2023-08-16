@@ -116,7 +116,7 @@ class GameskyTextProcessor(IProcessor):
             mid2l_con = self.html.xpath("//div[@class='Mid2L_con']")[0]
         except IndexError:
             # 若mid2l_con为空
-            return ["no content"]
+            return [""]
         raw_content = etree.tostring(mid2l_con, encoding="unicode", with_tail=True, method="html")
         return raw_content
 
@@ -126,7 +126,7 @@ class GameskyTextProcessor(IProcessor):
             mid2l_con = self.html.xpath("//div[@class='Mid2L_con']")[0]
         except IndexError:
             # 若mid2l_con为空
-            return ["no content"]
+            return [""]
         # 内容都在下面的p标签里面，div标签里面也有
         self.tag_list = mid2l_con.xpath("./child::*")
         self.res: list[str] = []

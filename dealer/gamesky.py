@@ -56,37 +56,6 @@ class GameskyDealer(IDealer):
         content: str = "\n".join(content.strip() for content in content_list if content)
         return raw_content, content
 
-    def save_as_txt(self, post: GameskyPost, path: pathlib.Path = pathlib.Path('./txt_results')):
-        """
-        txt格式存储到指定路径
-        """
-        if not path.exists():
-            path.mkdir()
-        # check title's '\'
-        # 加入\\删除一部分标题中的“\”符号
-        post.title = re.sub(r'[\/:*?"<>|\\]', '', post.title)
-        post.title = re.sub(r'\t', '', post.title)
-        # 处理后的干净文本为txt存储，方便对接之前的代码生成向量数据库
-        save_path = path / f"{post.title}.txt"
-        txt = post.title + ' ##>>## ' + post.content
-        with save_path.open("w", encoding="utf-8") as f:
-            f.write(txt)
-
-    def save_as_json(self, post: GameskyPost, path: pathlib.Path = pathlib.Path('./json_results')):
-        """
-        json格式存储到指定路径
-        """
-        if not path.exists():
-            path.mkdir()
-        # check title's '\'
-        # 加入\\删除一部分标题中的“\”符号
-        post.title = re.sub(r'[\/:*?"<>|\\]', '', post.title)
-        post.title = re.sub(r'\t', '', post.title)
-        # 原始数据存json，备用
-        save_path = path / f"{post.title}.json"
-        with save_path.open("w", encoding="utf-8") as f:
-            json.dump(post.json, f, ensure_ascii=False, indent=4)
-
     async def process_localize(self, post: GameskyPost, save_type: str, path: str = "") -> GameskyPost:
         """
         根据指定的方式存储到指定路径
@@ -105,24 +74,20 @@ class GameskyDealer(IDealer):
             print(f'Saved as .json: {post.title}')
         return post
 
-    async def deal(self, raw: bool = False, save_type: str = 'txt'):
+    async def __call__(self, raw: bool = False):
         """
         不会存在post不存在url的情况下吧，我规定了一定要传入url的
         但是url是可能不合理的
         """
+        # 先检查id是否存在
+
         async with self.session.get(url=self.post.url) as response:
             # content = await self.process_response(response=response)
             raw_content, content = await self.process_response_all_tag(response=response, raw=raw)
-            # 若指定需要raw数据，就先保存原始数据
-            if raw:
-                self.post.content = raw_content
-                self.post = await self.process_localize(post=self.post, path='./raw_results', save_type='json')
-            # 再保存清理后的数据
             self.post.content = content
-            if len(self.post.content) > 100:
-                return await self.process_localize(post=self.post, save_type=save_type)
-            else:
-                return self.post
+            if raw:
+                self.post.raw = raw_content
+            return self.post
 
 
 if __name__ == "__main__":
