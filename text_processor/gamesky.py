@@ -98,7 +98,7 @@ class GameskyTextProcessor(IProcessor):
             mid2l_con = self.html.xpath("//div[@class='Mid2L_con']")[0]
         except IndexError:
             # 若mid2l_con为空
-            return [""]
+            return ""
         raw_content = etree.tostring(mid2l_con, encoding="unicode", with_tail=True, method="html")
         return raw_content
 
@@ -132,7 +132,7 @@ class GameskyTextProcessor(IProcessor):
             return [""]
         a_elements = span_element.xpath('.//a')
         next_page_link = None
-        if a_elements[-1].text == '下一页':
+        if len(a_elements) > 0 and a_elements[-1].text == '下一页':
             next_page_link = a_elements[-1].get('href')
 
         return next_page_link

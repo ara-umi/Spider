@@ -6,6 +6,7 @@
 import json
 import pathlib
 import re
+import time
 from typing import Any
 
 import aiohttp
@@ -60,25 +61,7 @@ class GameskyDealer(IDealer):
         next_page_link = processor.get_next_page_link()
         return raw_content, content, next_page_link
 
-    async def process_localize(self, post: GameskyPost, save_type: str, path: str = "") -> GameskyPost:
-        """
-        根据指定的方式存储到指定路径
-        """
-        # 默认路径根据存储类型改变
-        if path == "":
-            path = pathlib.Path(f"./{save_type}_results")
-        else:
-            path = pathlib.Path(path)
-
-        if save_type == 'txt':
-            self.save_as_txt(post, path=path)
-            print(f'Saved as .txt: {post.title}')
-        elif save_type == 'json':
-            self.save_as_json(post, path=path)
-            print(f'Saved as .json: {post.title}')
-        return post
-
-    async def __call__(self, raw: bool = False):
+    async def __call__(self, raw: bool = False, sleep_time: float = 0.5):
         """
         不会存在post不存在url的情况下吧，我规定了一定要传入url的
         但是url是可能不合理的
@@ -97,6 +80,8 @@ class GameskyDealer(IDealer):
                 if raw:
                     all_pages_raw_content += raw_content
                 url = next_page_link
+            print(f"sleeping for {sleep_time}s……")
+            time.sleep(sleep_time)
         self.post.content = all_pages_content
         self.post.raw = all_pages_raw_content
         return self.post

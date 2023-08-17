@@ -30,7 +30,7 @@ class Downloader(IDownloader):
             txt = self.post.title + ' ##>>## ' + self.post.content
             with save_path.open("w", encoding="utf-8") as f:
                 f.write(txt)
-            print(f'Saved as .txt: {self.post.title}')
+            print(f'Saved as .txt: {self.post.title}, time: {self.post.time}')
         else:
             pass
 
@@ -53,6 +53,6 @@ class Downloader(IDownloader):
             save_path = path / f"{self.post.title}.json"
             with save_path.open("w", encoding="utf-8") as f:
                 json.dump(self.post.json, f, ensure_ascii=False, indent=4)
-            print(f'Saved as .json: {self.post.title}')
+            print(f'Saved as .json: {self.post.title}, time: {self.post.time}')
         else:
             pass
