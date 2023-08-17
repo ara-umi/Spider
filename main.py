@@ -60,5 +60,5 @@ def main_test():
 
 
 if __name__ == "__main__":
-    asyncio.get_event_loop().run_until_complete(main_example())
-    # main_test()
+    # asyncio.get_event_loop().run_until_complete(main_example())
+    main_test()

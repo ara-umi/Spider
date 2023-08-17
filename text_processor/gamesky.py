@@ -64,24 +64,6 @@ class GameskyTextProcessor(IProcessor):
         res = t.xpath("string()") if t.xpath("string()") else ""
         return res
 
-    def process_p(self, p: etree.Element) -> str:
-        """
-        目前包括以下情况
-        1、不带任何属性的p标签，内含文本
-        2、带有class=GsImageLabel的p标签，下面的a标签的href属性是图片地址
-
-        不包括以下情况
-        视频
-        小标题
-        ...
-        """
-        attribute_dict: dict = dict(p.attrib)
-        match attribute_dict:
-            case {"class": "GsImageLabel", **extra}:
-                return self._process_p_image(p=p)
-            case _:  # 空字典
-                return self._process_p_blank(p=p)
-
     def process_tag_p(self, p: etree.Element) -> str:
         """
         带image的p删掉，有水印基本用不了。
@@ -140,3 +122,17 @@ class GameskyTextProcessor(IProcessor):
                 res = self.process_tag(tag=tag)
                 self.res.append(res)
         return self.res
+
+    def get_next_page_link(self):
+        # 正文目前来看是在Mid2L_con里面
+        try:
+            span_element = self.html.xpath('//span[@id="pe100_page_contentpage" and contains(@class, "pagecss")]')[0]
+        except IndexError:
+            # 若mid2l_con为空
+            return [""]
+        a_elements = span_element.xpath('.//a')
+        next_page_link = None
+        if a_elements[-1].text == '下一页':
+            next_page_link = a_elements[-1].get('href')
+
+        return next_page_link

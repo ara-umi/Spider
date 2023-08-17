@@ -20,6 +20,9 @@ create environment from environment.yml using anaconda
 - 筛选功能一切基于返回的li标签（因为我是按页码非并发地顺序扫描）自己已经基于时间倒序排序
 - 尚不知晓游民星空是否含有ip封禁功能
 
+08-17
+- 支持多页处理
+
 08-16
 - 移动下载模块到middleware类。
 - 加入ID检测机制，重复内容不再获取。
@@ -39,5 +42,5 @@ create environment from environment.yml using anaconda
 1. [x] 模式匹配基于p标签，如果p标签属性不够满足模式匹配全部条件，需要细化标签
 2. [x] 需要text后处理
 3. [ ] 目前没有异常处理逻辑
-4. [ ] 目前不能处理多页
+4. [x] 目前不能处理多页
 5. [ ] 目前不能处理视频

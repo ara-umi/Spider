@@ -46,15 +46,19 @@ class GameskyDealer(IDealer):
 
     async def process_response_all_tag(self, response: aiohttp.ClientResponse, raw: bool) -> Any:
         """
-        保留所有有用tag里的内容
+        保留所有有用tag里的内容，添加多页处理逻辑
         """
         text = await response.text(encoding=self.encoding, errors="ignore")  # 忽略非法字符，默认“strict”会抛出异常
         html = etree.HTML(text=text)
+        # 获取网页的原始内容和过滤后的内容
         processor = GameskyTextProcessor(html)
         content_list = processor.get_clean_content()
         raw_content = processor.get_raw_content() if raw else ""
         content: str = "\n".join(content.strip() for content in content_list if content)
-        return raw_content, content
+
+        # 获取下一页的链接
+        next_page_link = processor.get_next_page_link()
+        return raw_content, content, next_page_link
 
     async def process_localize(self, post: GameskyPost, save_type: str, path: str = "") -> GameskyPost:
         """
@@ -78,16 +82,24 @@ class GameskyDealer(IDealer):
         """
         不会存在post不存在url的情况下吧，我规定了一定要传入url的
         但是url是可能不合理的
+        保留所有有用tag里的内容，添加多页处理逻辑
         """
-        # 先检查id是否存在
-
-        async with self.session.get(url=self.post.url) as response:
-            # content = await self.process_response(response=response)
-            raw_content, content = await self.process_response_all_tag(response=response, raw=raw)
-            self.post.content = content
-            if raw:
-                self.post.raw = raw_content
-            return self.post
+        # 缓存
+        url = self.post.url
+        all_pages_content = ""
+        all_pages_raw_content = ""
+        while url:
+            # url不断迭代，筛选的是text为下一页的url，最后一页的url为None，跳出循环
+            async with self.session.get(url=url) as response:
+                # content = await self.process_response(response=response)
+                raw_content, content, next_page_link = await self.process_response_all_tag(response=response, raw=raw)
+                all_pages_content += content
+                if raw:
+                    all_pages_raw_content += raw_content
+                url = next_page_link
+        self.post.content = all_pages_content
+        self.post.raw = all_pages_raw_content
+        return self.post
 
 
 if __name__ == "__main__":
