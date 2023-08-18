@@ -1,4 +1,7 @@
 __pycache__/
 generater/__pycache__/
 .idea/
+record/id_list.json
 results/
+txt_results/
+json_results/

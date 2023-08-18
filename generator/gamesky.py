@@ -3,13 +3,16 @@
 # Author: araumi
 # Email: 532990165@qq.com
 # DateTime: 2023/8/4 下午11:10
+
+import asyncio
 import datetime
 import json
 import random
 import re
 import time
 import urllib.parse
-from typing import Optional, NoReturn
+from functools import wraps
+from typing import Optional, NoReturn, Callable
 
 import aiohttp
 import pytz
@@ -19,20 +22,57 @@ from model import GameskyPost
 from .interface import IGenerator
 
 
-class LaterPostException(Exception):
-    # print("指针位置还未到设定时间区间，继续检索……")
+class CheckPostWrapper(object):
+
+    def __call__(self, post_generator_from_response: Callable):
+        @wraps(post_generator_from_response)
+        async def async_wrapped(obj_self, response: aiohttp.ClientResponse):
+            async for post in post_generator_from_response(obj_self, response=response):
+                if obj_self.start_datetime <= post.time_datetime <= obj_self.end_datetime:
+                    yield post
+                elif post.time_datetime > obj_self.start_datetime:
+                    continue
+                else:
+                    raise Stop()
+
+        return async_wrapped
+
+
+class ReachMaxRetryError(Exception):
     pass
 
 
-class EarlierPostException(Exception):
-    """
-    我们默认它是按照时间倒序的，所以这两种异常要分情况处理
-    """
+class Stop(Exception):
     pass
 
 
-class ValidPost(Exception):
-    pass
+class RetryWrapper(object):
+
+    def __init__(self, max_retry: int = 3, sleep_seconds: int = 1):
+        self.max_retry = max_retry
+        self.sleep_seconds = sleep_seconds
+
+    def __call__(self, get_response: Callable):
+        @wraps(get_response)
+        async def async_wrapped(obj_self, url: str, session: aiohttp.ClientSession):
+            retry: int = 0
+            while retry <= self.max_retry:
+                try:
+                    response: aiohttp.ClientResponse = await get_response(obj_self, url=url, session=session)
+                    """
+                    可以在这里添加response状态检查
+                    也可以重新写一个类叫CheckResponseWrapper
+                    """
+                    return response
+                except aiohttp.ClientError as e:
+                    print(f"Aiohttp ClientError：{e.__class__.__name__}: {str(e)}, url: {url}")  # 这里最好做成log
+                    await asyncio.sleep(self.sleep_seconds)
+                    retry += 1
+                    print(f"retry: {retry}, url: {url}")
+
+            raise ReachMaxRetryError(f"retry: {retry}, url: {url}")
+
+        return async_wrapped
 
 
 class GameskyGenerator(IGenerator):
@@ -138,7 +178,8 @@ class GameskyGenerator(IGenerator):
         """
         pass
 
-    async def process(self, response: aiohttp.ClientResponse):
+    @CheckPostWrapper()
+    async def post_generator_from_response(self, response: aiohttp.ClientResponse):
         """
         很神奇，它直接的返回竟然像一个json但是不是
         -> AsyncGenerator[GameskyPost]  返回值的标注我暂时没搞懂，就先不写
@@ -195,13 +236,10 @@ class GameskyGenerator(IGenerator):
         )
         return url
 
-    def post_check(self, post: GameskyPost) -> NoReturn:
-        if self.start_datetime <= post.time_datetime <= self.end_datetime:
-            raise ValidPost
-        elif post.time_datetime > self.start_datetime:
-            raise LaterPostException
-        else:
-            raise EarlierPostException
+    @RetryWrapper(max_retry=3, sleep_seconds=1)
+    async def get_response(self, url: str, session: aiohttp.ClientSession):
+        response: aiohttp.ClientResponse = await session.get(url=url)
+        return response
 
     async def __call__(self):
         """
@@ -209,34 +247,26 @@ class GameskyGenerator(IGenerator):
         """
         page = self.start_page
         session = await self.create_session()
-        err_times = 0
         while True:
             try:
-                url = self.shape_url(page=page)
-                async with session.get(url=url) as response:
-                    async for post in self.process(response):
-                        try:
-                            self.post_check(post=post)
-                        except ValidPost:
-                            yield post
-                        except LaterPostException:
-                            pass
-                        except EarlierPostException:
-                            print("指针位置的攻略早于设定时间区间，停止检索。")
-                            await self.release_session(session=session)
-                            return
-                print(f"检索页数：{page}")
+                url: str = self.shape_url(page=page)
+                response: aiohttp.ClientResponse = await self.get_response(url=url, session=session)
+                async for post in self.post_generator_from_response(response):
+                    yield post
+                response.release()
+                print(f"Page {page} done")
                 page += 1
-                err_times = 0
-            except Exception as e:
-                print("Error:", e)
-                err_times += 1
-                # 报错后默认重试 self.max_err_times 次，如果超过次数任异常，则跳过该page
-                if err_times >= self.max_err_times:
-                    self.save_err_pages(page)
-                    print(f"page: {page}, err_times: {err_times}, saved!")
-                    page += 1
-                    err_times = 0
+            except ReachMaxRetryError as e:
+                """
+                这里可以写达到最大重试次数后的存储逻辑
+                """
+                print(f"Page {page} reach max retry: {e}")
+                page += 1
+                continue
+            except Stop:
+                break
+
+        await self.release_session(session=session)
 
     def save_err_pages(self, page, save_path="./record/err_pages.txt"):
         with open(save_path, 'a+') as f:

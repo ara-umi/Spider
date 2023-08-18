@@ -24,7 +24,7 @@ class SpiderTest(unittest.IsolatedAsyncioTestCase):
         generator = GameskyGenerator(start_datetime=start_datetime, end_datetime=end_datetime)
 
         post_list: list[GameskyPost] = []
-        async for post in generator.generate():
+        async for post in generator():
             post_list.append(post)
             # 动态展示
             # print(post)
@@ -47,7 +47,7 @@ class SpiderTest(unittest.IsolatedAsyncioTestCase):
         session = aiohttp.ClientSession()
 
         dealer = GameskyDealer(post=post, session=session)
-        post = await dealer.deal()
+        post = await dealer()
         print(post.content)
 
         await session.close()
