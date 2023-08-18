@@ -73,5 +73,5 @@ def get_data_select_page(start_time: int, end_time: int, start_page: int = 1):
 
 
 if __name__ == "__main__":
-    get_data_select_page(20230101, 20230707, start_page=20)
+    get_data_select_page(20230817, 20230818, start_page=1)
     # main_test()

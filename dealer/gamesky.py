@@ -15,6 +15,7 @@ from lxml import etree
 from model import GameskyPost
 from text_processor import GameskyTextProcessor
 from .interface import IDealer
+from middleware.utils.wrapper import CheckPostWrapper, RetryWrapper, ReachMaxRetryError, Stop
 
 
 class GameskyDealer(IDealer):
@@ -30,6 +31,11 @@ class GameskyDealer(IDealer):
         self.post = post
         self.session = session
 
+    @RetryWrapper(max_retry=3, sleep_seconds=1)
+    async def get_response(self, url: str, session: aiohttp.ClientSession):
+        response: aiohttp.ClientResponse = await session.get(url=url)
+        return response
+
     async def process_response(self, response: aiohttp.ClientResponse) -> Any:
         text = await response.text(encoding=self.encoding)
         html = etree.HTML(text=text)
@@ -44,6 +50,7 @@ class GameskyDealer(IDealer):
 
         content: str = "\n".join(content for content in content_list if content)
         return content
+
 
     async def process_response_all_tag(self, response: aiohttp.ClientResponse, raw: bool) -> Any:
         """
@@ -72,16 +79,23 @@ class GameskyDealer(IDealer):
         all_pages_content = ""
         all_pages_raw_content = ""
         while url:
-            # url不断迭代，筛选的是text为下一页的url，最后一页的url为None，跳出循环
-            async with self.session.get(url=url) as response:
-                # content = await self.process_response(response=response)
+            try:
+                # url不断迭代，筛选的是text为下一页的url，最后一页的url为None，跳出循环
+                response: aiohttp.ClientResponse = await self.get_response(url=url, session=self.session)
                 raw_content, content, next_page_link = await self.process_response_all_tag(response=response, raw=raw)
                 all_pages_content += content
                 if raw:
                     all_pages_raw_content += raw_content
                 url = next_page_link
-            print(f"sleeping for {sleep_time}s……")
-            time.sleep(sleep_time)
+                print(f"sleeping for {sleep_time}s……")
+                time.sleep(sleep_time)
+            except ReachMaxRetryError as e:
+                """
+                这里可以写达到最大重试次数后的存储逻辑
+                """
+                continue
+            except Stop:
+                break
         self.post.content = all_pages_content
         self.post.raw = all_pages_raw_content
         return self.post
