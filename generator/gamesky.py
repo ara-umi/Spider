@@ -20,6 +20,7 @@ from .interface import IGenerator
 
 
 class LaterPostException(Exception):
+    # print("指针位置还未到设定时间区间，继续检索……")
     pass
 
 
@@ -45,14 +46,18 @@ class GameskyGenerator(IGenerator):
     start_page = 1
     timezone = pytz.timezone("Asia/Shanghai")
 
-    def __init__(self, start_datetime: datetime.datetime, end_datetime: Optional[datetime.datetime] = None):
+    def __init__(self, start_datetime: datetime.datetime, end_datetime: Optional[datetime.datetime] = None,
+                 start_page: int = 1):
         """
         不传入end_datetime的话，就只爬取start_datetime这一天的数据
         """
+        self.start_page = start_page
         self.start_datetime = self._format_input_datetime(input_datetime=start_datetime)
         self.end_datetime = self._format_input_datetime(end_datetime) \
             if end_datetime \
             else self._format_input_datetime(input_datetime=start_datetime)
+
+        self.max_err_times = 3
 
         assert self.start_datetime <= self.end_datetime, "start_datetime must be less than or equal to end_datetime"
         assert self.end_datetime <= datetime.datetime.now(
@@ -169,7 +174,7 @@ class GameskyGenerator(IGenerator):
 
             yield post
 
-    def shape_url(self, page: int) -> str:
+    def shape_url(self, page) -> str:
         timestamp_ms = int(time.time() * 1e3)
         # 是一个随机数，不过网页上请求一直都是1830开头
         random_suffix = ''.join(random.choice("0123456789") for _ in range(20))
@@ -204,20 +209,38 @@ class GameskyGenerator(IGenerator):
         """
         page = self.start_page
         session = await self.create_session()
+        err_times = 0
         while True:
-            url = self.shape_url(page=page)
-            async with session.get(url=url) as response:
-                async for post in self.process(response):
-                    try:
-                        self.post_check(post=post)
-                    except ValidPost:
-                        yield post
-                    except LaterPostException:
-                        pass
-                    except EarlierPostException:
-                        await self.release_session(session=session)
-                        return
-            page += 1
+            try:
+                url = self.shape_url(page=page)
+                async with session.get(url=url) as response:
+                    async for post in self.process(response):
+                        try:
+                            self.post_check(post=post)
+                        except ValidPost:
+                            yield post
+                        except LaterPostException:
+                            pass
+                        except EarlierPostException:
+                            print("指针位置的攻略早于设定时间区间，停止检索。")
+                            await self.release_session(session=session)
+                            return
+                print(f"检索页数：{page}")
+                page += 1
+                err_times = 0
+            except Exception as e:
+                print("Error:", e)
+                err_times += 1
+                # 报错后默认重试 self.max_err_times 次，如果超过次数任异常，则跳过该page
+                if err_times >= self.max_err_times:
+                    self.save_err_pages(page)
+                    print(f"page: {page}, err_times: {err_times}, saved!")
+                    page += 1
+                    err_times = 0
+
+    def save_err_pages(self, page, save_path="./record/err_pages.txt"):
+        with open(save_path, 'a+') as f:
+            f.write(f"{page}\n")
 
 
 if __name__ == "__main__":
