@@ -113,9 +113,9 @@ class GameskyGenerator(IGenerator):
         # con里面存的是tit、txt、tme
         con = li.xpath("./div[@class='con']")[0]
         # tme存的时间
-        tme = con.xpath("./div[@class='tme']")[0]
-        tme_time = tme.xpath("./div[@class='time']")[0]
-        post_time = tme_time.xpath("./text()")[0]
+        tme = con.xpath("./div[@class='tme']")[0] if con.xpath("./div[@class='tme']") else ""
+        tme_time = tme.xpath("./div[@class='time']")[0] if tme.xpath("./div[@class='time']") else ""
+        post_time = tme_time.xpath("./text()")[0] if tme_time.xpath("./text()") else ""
         return post_time
 
     def _process_link(self, li) -> NoReturn:
@@ -203,7 +203,7 @@ class GameskyGenerator(IGenerator):
                 print(f"Page {page} done")
                 page += 1
             except ReachMaxRetryError as e:
-                # save_err_pages(page)
+                self.save_err_pages(page)
                 print(f"Page {page} reach max retry: {e}")
                 page += 1
                 continue

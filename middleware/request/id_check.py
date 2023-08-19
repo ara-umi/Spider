@@ -38,3 +38,22 @@ class IDChecker(IIDChecker):
         self.id_list = list(self.id_list)
         with open(pathlib.Path("./record/id_list.json"), 'w') as json_file:
             json.dump(self.id_list, json_file)
+
+    def post_id_check(self, post):
+        # 检查id记录是否存在，不存在就新建集合
+        file_path = pathlib.Path("./record/id_list.json")
+        save_path = pathlib.Path("./record/")
+        if not save_path.exists():
+            save_path.mkdir()
+        if file_path.exists():
+            with open(file_path, 'r') as json_file:
+                loaded_id = json.load(json_file)
+            # 将加载的数据转换为集合
+            self.id_list = set(loaded_id)
+        else:
+            self.id_list = set()
+
+        if post.post_id in self.id_list:
+            print(f"post id: {post.post_id} already viewed.")
+            return False
+        return True

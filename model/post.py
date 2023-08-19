@@ -77,6 +77,17 @@ class GameskyPost(IPost):
             "raw": self.raw,
         }
 
+    @property
+    def post_list_json(self) -> dict:
+        return {
+            "id": self.post_id,
+            "title": self.title,
+            "title_img": self.title_img,
+            "url": self.url,
+            "overview": self.overview,
+            "time": self.time,
+        }
+
 
 if __name__ == "__main__":
     pass

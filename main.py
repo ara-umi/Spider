@@ -16,6 +16,7 @@ from generator import GameskyGenerator
 from model import GameskyPost
 from middleware.downloader import Downloader
 from middleware.request import IDChecker
+from middleware.utils.save_post_list import PostListSaver
 
 
 async def main(start_datetime: datetime, end_datetime: datetime, start_page: int = 1):
@@ -27,18 +28,19 @@ async def main(start_datetime: datetime, end_datetime: datetime, start_page: int
     # 这里读取id_list想根据已经有的id去除post_list存在的id，并不写入新的post_id
     id_checker = IDChecker(post_list)
     post_list = id_checker()
+    # 保存post_list
+    post_list_saver = PostListSaver(post_list)
+    post_list_saver()
 
-    session = aiohttp.ClientSession()  # 之后session要做成注入参数
-    for post in post_list:  # 这里后期要做并发
-        deal = GameskyDealer(post=post, session=session)  # 这里后期post不能做成初始化参数
-        post = await deal(raw=True, sleep_time=0.05)
-        downloader = Downloader(post=post)
-        await downloader.download_txt(path='./txt_results')
-        await downloader.download_json(path='./json_results')
-        # 保存到本地后才写入post_id
-        id_checker.save_each_post_id(post)
-
-    await session.close()
+    # for post in post_list:  # 这里后期要做并发
+    #     deal = GameskyDealer(post=post, session=session)  # 这里后期post不能做成初始化参数
+    #     post = await deal(raw=True, sleep_time=0.03)
+    #     downloader = Downloader(post=post)
+    #     await downloader.download_txt(path='./txt_results')
+    #     await downloader.download_json(path='./json_results')
+    #     # 保存到本地后才写入post_id
+    #     id_checker.save_each_post_id(post)
+    # await session.close()
 
 
 def main_test():
@@ -73,5 +75,6 @@ def get_data_select_page(start_time: int, end_time: int, start_page: int = 1):
 
 
 if __name__ == "__main__":
-    get_data_select_page(20230817, 20230818, start_page=1)
+    # get_data_select_page(20020101, 20190101, start_page=1336)
+    get_data_select_page(20000101, 20190101, start_page=1933)
     # main_test()

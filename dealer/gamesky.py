@@ -87,18 +87,23 @@ class GameskyDealer(IDealer):
                 if raw:
                     all_pages_raw_content += raw_content
                 url = next_page_link
-                print(f"sleeping for {sleep_time}s……")
+                # print(f"sleeping for {sleep_time}s……")
                 time.sleep(sleep_time)
             except ReachMaxRetryError as e:
                 """
                 这里可以写达到最大重试次数后的存储逻辑
                 """
+                self.save_err_links(url)
                 continue
             except Stop:
                 break
         self.post.content = all_pages_content
         self.post.raw = all_pages_raw_content
         return self.post
+
+    def save_err_links(self, link, save_path="./record/err_links.txt"):
+        with open(save_path, 'a+') as f:
+            f.write(f"{link}\n")
 
 
 if __name__ == "__main__":
