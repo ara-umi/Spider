@@ -22,7 +22,7 @@ from middleware.utils.load_post_list import PostListLoader
 
 async def get_data_from_list():
     # 保存post_list
-    post_list_loader = PostListLoader(file_path="./record/2017.json")
+    post_list_loader = PostListLoader(file_path="./record/2023.json")
     post_list = post_list_loader()
     id_checker = IDChecker(post_list)
     post_list = id_checker()
