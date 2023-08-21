@@ -88,6 +88,11 @@ class GameskyPost(IPost):
             "time": self.time,
         }
 
+    @classmethod
+    def from_json(cls, json_data):
+        json_data['post_id'] = json_data.pop('id')
+        return cls(**json_data)
+
 
 if __name__ == "__main__":
     pass

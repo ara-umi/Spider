@@ -129,7 +129,7 @@ class GameskyTextProcessor(IProcessor):
             span_element = self.html.xpath('//span[@id="pe100_page_contentpage" and contains(@class, "pagecss")]')[0]
         except IndexError:
             # 若mid2l_con为空
-            return [""]
+            return None
         a_elements = span_element.xpath('.//a')
         next_page_link = None
         if len(a_elements) > 0 and a_elements[-1].text == '下一页':

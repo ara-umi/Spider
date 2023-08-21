@@ -20,18 +20,17 @@ from middleware.utils.save_post_list import PostListSaver
 
 
 async def main(start_datetime: datetime, end_datetime: datetime, start_page: int = 1):
+    year = start_datetime.year
     generate = GameskyGenerator(start_datetime=start_datetime, end_datetime=end_datetime, start_page=start_page)
     post_list = []
     async for post in generate():
         post_list.append(post)
         print(post)
-    # 这里读取id_list想根据已经有的id去除post_list存在的id，并不写入新的post_id
-    id_checker = IDChecker(post_list)
-    post_list = id_checker()
     # 保存post_list
     post_list_saver = PostListSaver(post_list)
-    post_list_saver()
+    post_list_saver(file_path=f"./record/{year}.json")
 
+    # session = aiohttp.ClientSession()  # 之后session要做成注入参数
     # for post in post_list:  # 这里后期要做并发
     #     deal = GameskyDealer(post=post, session=session)  # 这里后期post不能做成初始化参数
     #     post = await deal(raw=True, sleep_time=0.03)
@@ -44,16 +43,16 @@ async def main(start_datetime: datetime, end_datetime: datetime, start_page: int
 
 
 def main_test():
-    start_datetime = datetime.datetime(year=2023, month=7, day=1)
+    start_datetime = datetime.datetime(year=2000, month=7, day=1)
     end_datetime = datetime.datetime(year=2023, month=8, day=1)
     generate = GameskyGenerator(start_datetime=start_datetime, end_datetime=end_datetime)
     kwargs = {
-        'post_id': 1482021,
-        'title': '《艾尔登法环》支线完成顺序速览 1.04版本NPC支线顺序推荐',
-        'title_img': 'https://imgs.gamersky.com/upimg/new_preview/2023/08/06/origin_202308061627487960.jpg',
-            'url': 'https://www.gamersky.com/handbook/202010/1327388.shtml',
-        'overview': '《博德之门3》中巴尔神殿想要进入非常复杂，还不知道具体方法的玩家请看下面...',
-        'time': '2023-08-06'}
+        'post_id': 856598,
+        "title": "《战国之野望》云游四海玩法全攻略",
+        "title_img": "null",
+        "url": "https://www.gamersky.com/handbook/201701/856598.shtml",
+        "overview": "　　《战国之野望》云游四海玩法全攻略，云游四海功能详解。\n游民星空《战国之野望》游戏最新区服：点击进入\n\n云游四海功能描述\n　　云游四海为ROLL骰子的游戏\n　　点",
+        "time": "2017-01-09"}
     post = GameskyPost(**kwargs)
 
     loop = asyncio.get_event_loop()
@@ -75,6 +74,5 @@ def get_data_select_page(start_time: int, end_time: int, start_page: int = 1):
 
 
 if __name__ == "__main__":
-    # get_data_select_page(20020101, 20190101, start_page=1336)
-    get_data_select_page(20000101, 20190101, start_page=1933)
+    get_data_select_page(20230101, 20230821, start_page=1)
     # main_test()

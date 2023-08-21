@@ -79,24 +79,15 @@ class GameskyDealer(IDealer):
         all_pages_content = ""
         all_pages_raw_content = ""
         while url:
-            try:
-                # url不断迭代，筛选的是text为下一页的url，最后一页的url为None，跳出循环
-                response: aiohttp.ClientResponse = await self.get_response(url=url, session=self.session)
-                raw_content, content, next_page_link = await self.process_response_all_tag(response=response, raw=raw)
-                all_pages_content += content
-                if raw:
-                    all_pages_raw_content += raw_content
-                url = next_page_link
-                # print(f"sleeping for {sleep_time}s……")
-                time.sleep(sleep_time)
-            except ReachMaxRetryError as e:
-                """
-                这里可以写达到最大重试次数后的存储逻辑
-                """
-                self.save_err_links(url)
-                continue
-            except Stop:
-                break
+            # url不断迭代，筛选的是text为下一页的url，最后一页的url为None，跳出循环
+            response: aiohttp.ClientResponse = await self.get_response(url=url, session=self.session)
+            raw_content, content, next_page_link = await self.process_response_all_tag(response=response, raw=raw)
+            all_pages_content += content
+            if raw:
+                all_pages_raw_content += raw_content
+            url = next_page_link
+            # print(f"sleeping for {sleep_time}s……")
+            time.sleep(sleep_time)
         self.post.content = all_pages_content
         self.post.raw = all_pages_raw_content
         return self.post

@@ -15,3 +15,5 @@ class PostListSaver:
         with open(file_path, 'w', encoding="utf-8") as jsonl_file:
             json.dump(result, jsonl_file, ensure_ascii=False, indent=4)
         print('Saving complete')
+
+
