@@ -21,6 +21,10 @@ from .interface import IGenerator
 from middleware.utils.wrapper import CheckPostWrapper, RetryWrapper, ReachMaxRetryError, Stop
 
 
+class CustomException(Exception):
+    pass
+
+
 class GameskyGenerator(IGenerator):
     """
     使用的ajax动态加载
@@ -33,10 +37,14 @@ class GameskyGenerator(IGenerator):
     timezone = pytz.timezone("Asia/Shanghai")
 
     def __init__(self, start_datetime: datetime.datetime, end_datetime: Optional[datetime.datetime] = None,
-                 start_page: int = 1):
+                 start_page: int = 1, gl_class: int = 18):
         """
         不传入end_datetime的话，就只爬取start_datetime这一天的数据
         """
+        self.gl_class = gl_class
+        # 18是攻略数据库，19秘籍
+        # 20354是奖杯成就数据库，20352是疑难数据库 20351游戏资料
+        # 21114手游攻略，保持更新，20994老手游攻略，22年就不更新了
         self.start_page = start_page
         self.start_datetime = self._format_input_datetime(input_datetime=start_datetime)
         self.end_datetime = self._format_input_datetime(end_datetime) \
@@ -113,10 +121,14 @@ class GameskyGenerator(IGenerator):
         # con里面存的是tit、txt、tme
         con = li.xpath("./div[@class='con']")[0]
         # tme存的时间
-        tme = con.xpath("./div[@class='tme']")[0] if con.xpath("./div[@class='tme']") else ""
+        if con.xpath("./div[@class='tme']"):
+            tme = con.xpath("./div[@class='tme']")[0]
+        else:
+            return "2077-07-07"
         tme_time = tme.xpath("./div[@class='time']")[0] if tme.xpath("./div[@class='time']") else ""
         post_time = tme_time.xpath("./text()")[0] if tme_time.xpath("./text()") else ""
         return post_time
+
 
     def _process_link(self, li) -> NoReturn:
         """
@@ -130,36 +142,41 @@ class GameskyGenerator(IGenerator):
         很神奇，它直接的返回竟然像一个json但是不是
         -> AsyncGenerator[GameskyPost]  返回值的标注我暂时没搞懂，就先不写
         """
-        patter = re.compile(r"jQuery\d+_\d+\((?P<json>.*?)\);", flags=re.S)
-        text = await response.text(encoding=self.encoding)
-        match = patter.match(text)  # 这里掐头去尾才是一个json
-        body = json.loads(match.group("json"))["body"]
-        html = etree.HTML(body)
+        try:
+            patter = re.compile(r"jQuery\d+_\d+\((?P<json>.*?)\);", flags=re.S)
+            text = await response.text(encoding=self.encoding)
+            match = patter.match(text)  # 这里掐头去尾才是一个json
+            body = json.loads(match.group("json"))["body"]
+            html = etree.HTML(body)
 
-        li_list = html.xpath("//li")
-        for li in li_list:
-            # for debug
-            # print(etree.tostring(li, encoding="utf-8").decode("utf-8"))
+            li_list = html.xpath("//li")
+            for li in li_list:
+                # for debug
+                # print(etree.tostring(li, encoding="utf-8").decode("utf-8"))
 
-            # li里面有两个div，一个是img，一个是con
-            title = self._process_title(li=li)
-            title_img = self._process_img(li=li)
-            url = self._process_url(li=li)
-            overview = self._process_overview(li=li)
-            post_time = self._process_time(li=li)
-            # 正则得到url后面的id
-            post_id = self._process_id(url=url)
+                # li里面有两个div，一个是img，一个是con
+                title = self._process_title(li=li)
+                title_img = self._process_img(li=li)
+                url = self._process_url(li=li)
+                overview = self._process_overview(li=li)
+                post_time = self._process_time(li=li)
+                # 正则得到url后面的id
+                post_id = self._process_id(url=url)
 
-            post = GameskyPost(
-                title=title,
-                title_img=title_img,
-                url=url,
-                overview=overview,
-                time=post_time,
-                post_id=post_id,
-            )
+                post = GameskyPost(
+                    title=title,
+                    title_img=title_img,
+                    url=url,
+                    overview=overview,
+                    time=post_time,
+                    post_id=post_id,
+                )
 
-            yield post
+                yield post
+        except json.decoder.JSONDecodeError as e:
+            print(f"JSON decode error: {e}")
+            # 在这里可以记录日志或者执行其他适当的处理
+            raise CustomException("JSON decode error occurred")  # 引发自定义异常
 
     def shape_url(self, page) -> str:
         timestamp_ms = int(time.time() * 1e3)
@@ -170,7 +187,7 @@ class GameskyGenerator(IGenerator):
             "type": "updatenodelabel",
             "isCache": "true",
             "cacheTime": 60,
-            "nodeId": "18",  # 只能是18，其他的都不行
+            "nodeId": str(self.gl_class),
             "isNodeId": "true",
             "page": page
         }
@@ -209,6 +226,16 @@ class GameskyGenerator(IGenerator):
                 continue
             except Stop:
                 break
+            except CustomException as ee:
+                self.save_err_pages(page)
+                print(f"Page {page} not load correctly: {ee}")
+                page += 1
+                continue
+            except Exception as everye:
+                self.save_err_pages(page)
+                print(f"Page {page} not load correctly: {everye}")
+                page += 1
+                continue
 
         await self.release_session(session=session)
 

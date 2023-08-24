@@ -20,6 +20,14 @@ create environment from environment.yml using anaconda
 - 筛选功能一切基于返回的li标签（因为我是按页码非并发地顺序扫描）自己已经基于时间倒序排序
 - 尚不知晓游民星空是否含有ip封禁功能
 
+Fin.
+- 自动爬取最新，自定义时间间隔
+- 独立保存post列表，再直接根据列表里的URL爬
+- 增加多地异常捕获机制，跳过抛出异常的page并记录在record/err_pages.txt
+- 可选多个数据库，包括成就、疑难、手游
+- 可入数据库
+- 优化post结构
+
 08-17
 - 支持多页处理
 

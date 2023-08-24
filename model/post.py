@@ -42,7 +42,7 @@ class GameskyPost(IPost):
     @property
     def details(self) -> dict:
         return {
-            "id": self.post_id,
+            "post_id": self.post_id,
             "title": self.title,
             "title_img": self.title_img,
             "url": self.url,
@@ -67,7 +67,7 @@ class GameskyPost(IPost):
     @property
     def json(self) -> dict:
         return {
-            "id": self.post_id,
+            "post_id": self.post_id,
             "title": self.title,
             "title_img": self.title_img,
             "url": self.url,
@@ -75,12 +75,14 @@ class GameskyPost(IPost):
             "time": self.time,
             "content": self.content,
             "raw": self.raw,
+            "create_time": datetime.datetime.now().strftime("%Y-%m-%d"),
+            "status": 0,
         }
 
     @property
     def post_list_json(self) -> dict:
         return {
-            "id": self.post_id,
+            "post_id": self.post_id,
             "title": self.title,
             "title_img": self.title_img,
             "url": self.url,
@@ -90,7 +92,7 @@ class GameskyPost(IPost):
 
     @classmethod
     def from_json(cls, json_data):
-        json_data['post_id'] = json_data.pop('id')
+        json_data['post_id'] = json_data.pop('post_id')
         return cls(**json_data)
 
 

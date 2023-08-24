@@ -5,13 +5,14 @@ import json
 
 
 class IDChecker(IIDChecker):
-    def __init__(self, post_list: list[GameskyPost], ):
+    def __init__(self, post_list: list[GameskyPost], id_list_path: str = "./record/id_list.json"):
         self.post_list = post_list
         self.id_list: set = set()
+        self.id_list_path = id_list_path
 
     def __call__(self):
         # 检查id记录是否存在，不存在就新建集合
-        file_path = pathlib.Path("./record/id_list.json")
+        file_path = pathlib.Path(self.id_list_path)
         save_path = pathlib.Path("./record/")
         if not save_path.exists():
             save_path.mkdir()
@@ -36,12 +37,12 @@ class IDChecker(IIDChecker):
         self.id_list = set(self.id_list)
         self.id_list.add(post.post_id)
         self.id_list = list(self.id_list)
-        with open(pathlib.Path("./record/id_list.json"), 'w') as json_file:
+        with open(pathlib.Path(self.id_list_path), 'w') as json_file:
             json.dump(self.id_list, json_file)
 
     def post_id_check(self, post):
         # 检查id记录是否存在，不存在就新建集合
-        file_path = pathlib.Path("./record/id_list.json")
+        file_path = pathlib.Path(self.id_list_path)
         save_path = pathlib.Path("./record/")
         if not save_path.exists():
             save_path.mkdir()
