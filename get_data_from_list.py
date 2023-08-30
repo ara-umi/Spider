@@ -28,20 +28,26 @@ async def get_data_from_list(year: int):
     # id_checker = IDChecker(post_list)
     # post_list = id_checker()
     session = aiohttp.ClientSession()  # 之后session要做成注入参数
+    count = 0
     for post in post_list:  # 这里后期要做并发
         deal = GameskyDealer(post=post, session=session)  # 这里后期post不能做成初始化参数
-        post = await deal(raw=True, sleep_time=0.05)
+        post = await deal(raw=True, sleep_time=0)
         downloader = Downloader(post=post)
         await downloader.download_txt(path='./txt_results')
         await downloader.download_json(path='./json_results')
         # 保存到本地后才写入post_id
         # id_checker.save_each_post_id(post)
+        count += 1
+        if count == 1000:
+            print("休息1分钟……")
+            time.sleep(60)
+            count = 0
     await session.close()
 
 
 if __name__ == "__main__":
-    year = 1997
-    while year > 1996:
+    year = 1996
+    while year > 1995:
         if os.path.exists(f"./record/{year}.json"):
             asyncio.get_event_loop().run_until_complete(get_data_from_list(year))
             year -= 1

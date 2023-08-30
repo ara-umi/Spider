@@ -31,6 +31,8 @@ class GameskyPost(IPost):
     time: str = field()
     post_id: int = field()
     raw: str = field(default="")
+    game_name: str = field(default="")
+    sources: str = field(default="gamersky")
 
     timezone = pytz.timezone("Asia/Shanghai")  # 需要和GameskyGenerator的timezone一致，这里写死，大概率不用修改
     _content: str = field(default=None, repr=False)
@@ -77,6 +79,16 @@ class GameskyPost(IPost):
             "raw": self.raw,
             "create_time": datetime.datetime.now().strftime("%Y-%m-%d"),
             "status": 0,
+            "game_name": self.game_name,
+            "sources": self.sources,
+        }
+
+    @property
+    def json_game_name(self) -> dict:
+        return {
+            "post_id": self.post_id,
+            "game_name": self.game_name,
+            "sources": self.sources,
         }
 
     @property

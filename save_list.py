@@ -20,7 +20,7 @@ from middleware.utils.save_post_list import PostListSaver
 
 
 async def main(start_datetime: datetime, end_datetime: datetime, start_page: int = 1):
-    year = 1997
+    year = 1996
     generate = GameskyGenerator(start_datetime=start_datetime, end_datetime=end_datetime, start_page=start_page, gl_class=20994)
     post_list = []
     async for post in generate():
@@ -62,5 +62,5 @@ def get_data_select_page(start_time: int, end_time: int, start_page: int = 1):
 
 
 if __name__ == "__main__":
-    get_data_select_page(20140504, 20230823, start_page=1)
+    get_data_select_page(20180209, 20230823, start_page=1)
     # main_test()

@@ -136,3 +136,11 @@ class GameskyTextProcessor(IProcessor):
             next_page_link = a_elements[-1].get('href')
 
         return next_page_link
+
+    def get_game_name(self):
+        try:
+            game_title = self.html.xpath('//div[@class="box_game"]//*[contains(concat(" ", normalize-space(@class), " "), " tit ")]/a/text()')[0]
+        except IndexError:
+            # 若为空
+            return ""
+        return game_title

@@ -15,11 +15,10 @@ from middleware.request import IDChecker
 from save_list import main
 from middleware.utils.import_sql import import_data_to_sql
 
-
 async def main(start_datetime: datetime, end_datetime: datetime, start_page: int = 1, gl_class: int = 18,
                id_list_path: str = "./record/id_list.json"):
     generate = GameskyGenerator(start_datetime=start_datetime, end_datetime=end_datetime, start_page=start_page,
-                                gl_class=gl_class)
+                                gl_class=gl_class, sources='gamersky')
     post_list = []
     async for post in generate():
         post_list.append(post)
@@ -34,9 +33,16 @@ async def main(start_datetime: datetime, end_datetime: datetime, start_page: int
         post = await deal(raw=True, sleep_time=0.03)
         downloader = Downloader(post=post)
         await downloader.download_txt(path='./txt_results_new')
-        await downloader.download_json(path='./json_results_new')
+        flag = await downloader.download_json(path='./json_results_new')
         # 保存到本地后才写入post_id
         id_checker.save_each_post_id(post)
+        # 导入数据库
+        if flag:
+            try:
+                import_data_to_sql(post)
+            except IntegrityError as e:
+                print(f"攻略 {post.title} 已存在。")
+                pass
     await session.close()
 
 
@@ -48,28 +54,18 @@ def get_data_select_page(start_time: int, end_time: int, start_page: int = 1):
     asyncio.get_event_loop().run_until_complete(main(start_datetime, end_datetime, start_page))
 
 
-def get_data_auto_update(interval: int = 30, sql_threshold: int = 2):
+def get_data_auto_update(interval: int = 30):
     while True:
         start_datetime = datetime.datetime.combine(datetime.datetime.today().date(), datetime.time(0, 0, 0))
         end_datetime = datetime.datetime.today()
-        asyncio.get_event_loop().run_until_complete(main(start_datetime, end_datetime, id_list_path="./record/id_list_new.json"))
+        asyncio.get_event_loop().run_until_complete(main(start_datetime, end_datetime, gl_class=18,
+                                                         id_list_path="./record/id_list_new.json"))
+        asyncio.get_event_loop().run_until_complete(main(start_datetime, end_datetime, gl_class=21114,
+                                                         id_list_path="./record/id_list_new.json"))
 
         # 定时更新打印
         remaining_time = interval * 60
-        # embedding + FAISS merge
 
-        # json文件大于100个 就入库
-        json_folder = "./json_results_new"
-        # 获取文件夹中的文件列表
-        file_list = os.listdir(json_folder)
-        # 判断文件数量是否大于阈值
-        print("检测是否导入数据库……")
-        if len(file_list) > sql_threshold:
-            print(f"已爬取{len(file_list)}篇攻略，准备导入数据库。\n……\n")
-            import_data_to_sql(json_folder)
-            print("导入完毕。")
-        else:
-            print(f"已爬取{len(file_list)}篇攻略，超过{sql_threshold}篇时会自动导入数据库。")
         while remaining_time > 0:
             minutes, seconds = divmod(remaining_time, 60)
             hours, minutes = divmod(minutes, 60)
@@ -79,4 +75,4 @@ def get_data_auto_update(interval: int = 30, sql_threshold: int = 2):
 
 
 if __name__ == "__main__":
-    get_data_auto_update()
+    get_data_auto_update(interval=1)

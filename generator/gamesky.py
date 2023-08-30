@@ -37,10 +37,11 @@ class GameskyGenerator(IGenerator):
     timezone = pytz.timezone("Asia/Shanghai")
 
     def __init__(self, start_datetime: datetime.datetime, end_datetime: Optional[datetime.datetime] = None,
-                 start_page: int = 1, gl_class: int = 18):
+                 start_page: int = 1, gl_class: int = 18, sources: str = 'gamersky'):
         """
         不传入end_datetime的话，就只爬取start_datetime这一天的数据
         """
+        self.sources = sources
         self.gl_class = gl_class
         # 18是攻略数据库，19秘籍
         # 20354是奖杯成就数据库，20352是疑难数据库 20351游戏资料
@@ -170,6 +171,7 @@ class GameskyGenerator(IGenerator):
                     overview=overview,
                     time=post_time,
                     post_id=post_id,
+                    sources=self.sources,
                 )
 
                 yield post

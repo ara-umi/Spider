@@ -36,22 +36,6 @@ class GameskyDealer(IDealer):
         response: aiohttp.ClientResponse = await session.get(url=url)
         return response
 
-    async def process_response(self, response: aiohttp.ClientResponse) -> Any:
-        text = await response.text(encoding=self.encoding)
-        html = etree.HTML(text=text)
-        # 正文目前来看是在Mid2L_con里面
-        mid2l_con = html.xpath("//div[@class='Mid2L_con']")[0]
-        # 内容都在下面的p标签里面
-        p_list = mid2l_con.xpath("./p")
-        content_list: list[str] = []
-        for p in p_list:
-            res = self.process_p(p=p)
-            content_list.append(res)
-
-        content: str = "\n".join(content for content in content_list if content)
-        return content
-
-
     async def process_response_all_tag(self, response: aiohttp.ClientResponse, raw: bool) -> Any:
         """
         保留所有有用tag里的内容，添加多页处理逻辑
@@ -63,10 +47,14 @@ class GameskyDealer(IDealer):
         content_list = processor.get_clean_content()
         raw_content = processor.get_raw_content() if raw else ""
         content: str = "\n".join(content.strip() for content in content_list if content)
-
+        # 过滤掉 “游民”
+        content = re.sub(r'游民', '', content)
+        raw_content = re.sub(r'游民', '', raw_content)
         # 获取下一页的链接
         next_page_link = processor.get_next_page_link()
-        return raw_content, content, next_page_link
+        # 获取游戏名
+        game_name = processor.get_game_name()
+        return raw_content, content, game_name, next_page_link
 
     async def __call__(self, raw: bool = False, sleep_time: float = 0.5):
         """
@@ -78,10 +66,11 @@ class GameskyDealer(IDealer):
         url = self.post.url
         all_pages_content = ""
         all_pages_raw_content = ""
+        game_title = ""
         while url:
             # url不断迭代，筛选的是text为下一页的url，最后一页的url为None，跳出循环
             response: aiohttp.ClientResponse = await self.get_response(url=url, session=self.session)
-            raw_content, content, next_page_link = await self.process_response_all_tag(response=response, raw=raw)
+            raw_content, content, game_title, next_page_link = await self.process_response_all_tag(response=response, raw=raw)
             all_pages_content += content
             if raw:
                 all_pages_raw_content += raw_content
@@ -90,6 +79,7 @@ class GameskyDealer(IDealer):
             time.sleep(sleep_time)
         self.post.content = all_pages_content
         self.post.raw = all_pages_raw_content
+        self.post.game_name = game_title
         return self.post
 
     def save_err_links(self, link, save_path="./record/err_links.txt"):
